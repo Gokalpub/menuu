@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lezzet Durağı</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Montserrat & Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, updateDoc, collection, query, where, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase ve Firestore'u global scope'a taşıma
+        window.firebase = {
+            initializeApp,
+            getAuth,
+            signInAnonymously,
+            signInWithCustomToken,
+            onAuthStateChanged,
+            getFirestore,
+            doc,
+            addDoc,
+            updateDoc,
+            onSnapshot,
+            collection,
+            query,
+            where,
+            serverTimestamp,
+            setLogLevel
+        };
+    </script>
+    <style>
+        .font-poppins { font-family: 'Poppins', sans-serif; }
+        .font-montserrat { font-family: 'Montserrat', sans-serif; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0c0a09;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .item-card {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: linear-gradient(145deg, #1a1a1a, #2c2c2c);
+        }
+        .item-card:hover {
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(-10px) scale(1.02);
+        }
+        .tab-button.active {
+            background-color: #ffc107;
+            color: #1a202c;
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(255, 193, 7, 0.4);
+        }
+        .order-summary {
+            position: sticky;
+            top: 2rem;
+        }
+        .hidden {
+            display: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ffc107;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Özel buton animasyonu */
+        .btn-hover-effect {
+            transition: all 0.3s ease-in-out;
+        }
+        .btn-hover-effect:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(255, 193, 7, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-zinc-900 text-white min-h-screen p-4 flex flex-col items-center">
+
+    <div id="loader-overlay" class="fixed inset-0 bg-zinc-900 bg-opacity-75 z-[60] flex items-center justify-center">
+        <div class="flex flex-col items-center space-y-4 text-white">
+            <div class="loader"></div>
+            <p class="text-lg font-poppins">Yükleniyor...</p>
+        </div>
+    </div>
+
+    <!-- Masa Seçim Modal -->
+    <div id="table-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl">
+            <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Masa Numaranızı Girin</h2>
+            <p class="text-zinc-400 mb-6 font-poppins">Lütfen siparişinizin geleceği masa numarasını giriniz.</p>
+            <input id="table-input" type="number" placeholder="Masa No" class="w-full bg-zinc-700 text-white p-3 rounded-lg text-center text-xl font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-300 font-montserrat">
+            <button id="set-table-btn" class="w-full mt-6 py-3 rounded-full bg-amber-500 text-black font-bold text-lg hover:bg-amber-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed btn-hover-effect">Masayı Onayla</button>
+        </div>
+    </div>
+
+    <!-- Çalışan Giriş Modal -->
+    <div id="staff-login-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl">
+            <button id="close-login-modal" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors duration-200 text-2xl font-bold">&times;</button>
+            <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Çalışan Girişi</h2>
+            <p class="text-zinc-400 mb-6 font-poppins">Lütfen yönetici şifresini giriniz.</p>
+            <input id="staff-password-input" type="password" placeholder="Şifre" class="w-full bg-zinc-700 text-white p-3 rounded-lg text-center text-xl font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-300 font-montserrat">
+            <p id="login-message" class="text-red-500 mt-2 text-sm hidden">Yanlış şifre.</p>
+            <button id="staff-login-btn" class="w-full mt-6 py-3 rounded-full bg-amber-500 text-black font-bold text-lg hover:bg-amber-600 transition-all duration-300 btn-hover-effect">Giriş Yap</button>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-6 md:p-10 rounded-3xl space-y-8 bg-zinc-900">
+        <!-- Başlık Bölümü -->
+        <div class="text-center space-y-4">
+            <h1 class="text-5xl font-extrabold text-amber-500 tracking-wide font-montserrat">Lezzet Durağı</h1>
+            <p id="app-subtitle" class="text-zinc-400 text-lg font-medium font-poppins">Siparişinizi oluşturmak için lezzetleri keşfedin.</p>
+            <p id="current-table-display" class="text-lg font-semibold text-amber-500 hidden font-poppins">Masa No: <span id="table-number-text"></span></p>
+        </div>
+
+        <!-- Görünüm Değiştirme Butonları -->
+        <div class="flex justify-center gap-4">
+            <button id="customer-view-btn" class="px-4 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-amber-500 text-black">Müşteri Görünümü</button>
+            <button id="staff-view-btn" class="px-4 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 text-zinc-400 hover:bg-zinc-700">Çalışan Görünümü</button>
+        </div>
+
+        <!-- Müşteri Görünümü -->
+        <div id="customer-view" class="">
+            <!-- Kategori Butonları -->
+            <div class="flex justify-center gap-4 md:gap-8 flex-wrap">
+                <button class="tab-button active px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="kahveler">☕ Kahveler</button>
+                <button class="tab-button px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="tatlilar">🍰 Tatlılar</button>
+                <button class="tab-button px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="sandvicler">🥪 Sandviçler</button>
+                <button class="tab-button px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="icecekler">🍹 İçecekler</button>
+            </div>
+            
+            <!-- Menü ve Sipariş Özeti Bölümü -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
+                <!-- Menü İçeriği -->
+                <div class="lg:col-span-2 space-y-8">
+                    <div id="menu-content" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Menü Öğeleri Buraya JS ile Eklenecek -->
+                    </div>
+                </div>
+
+                <!-- Sipariş Özeti -->
+                <div class="lg:col-span-1 p-6 rounded-3xl bg-zinc-800 order-summary h-fit shadow-lg border border-zinc-700">
+                    <h2 class="text-2xl font-bold text-amber-500 mb-4 text-center border-b-2 border-zinc-700 pb-2 font-montserrat">Sipariş Özeti</h2>
+                    <ul id="cart-items" class="space-y-4 font-poppins">
+                        <li class="text-center text-zinc-400">Sepetiniz şu anda boş.</li>
+                    </ul>
+                    <div class="mt-6 pt-4 border-t-2 border-zinc-700 flex justify-between items-center">
+                        <span class="text-xl font-bold text-white font-montserrat">Toplam:</span>
+                        <span id="total-price" class="text-2xl font-bold text-amber-500 font-montserrat">0 TL</span>
+                    </div>
+                    <button id="order-button" class="w-full mt-6 py-3 rounded-full bg-amber-500 text-black font-bold text-lg shadow-lg hover:bg-amber-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed btn-hover-effect">Siparişi Tamamla</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Çalışan Görünümü -->
+        <div id="staff-view" class="hidden">
+            <h2 class="text-3xl font-bold text-center text-amber-500 mb-6 font-montserrat">Canlı Sipariş Paneli</h2>
+            <div id="live-orders-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Hazırlanan siparişler buraya JS ile eklenecek -->
+            </div>
+            <div class="mt-12">
+                <h2 class="text-3xl font-bold text-center text-zinc-400 mb-6 font-montserrat">Geçmiş Siparişler</h2>
+                <div id="past-orders-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Tamamlanan siparişler buraya JS ile eklenecek -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ürün Detay Modal -->
+    <div id="item-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl">
+            <button id="close-modal" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors duration-200 text-2xl font-bold">&times;</button>
+            <div id="modal-content">
+                <div id="modal-image-placeholder" class="bg-zinc-700 w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span id="modal-emoji" class="text-6xl"></span>
+                </div>
+                <h3 id="modal-title" class="text-3xl font-bold text-amber-500 mb-2 font-montserrat"></h3>
+                <p id="modal-description" class="text-zinc-400 mb-4 font-poppins"></p>
+                <div id="modal-options" class="space-y-4 text-left mt-6 font-poppins">
+                    <!-- Seçenekler buraya eklenecek -->
+                </div>
+                <div class="flex items-center justify-center gap-4 mt-6">
+                    <button id="decrease-quantity-modal" class="bg-zinc-700 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-xl hover:bg-zinc-600 transition-colors duration-300 btn-hover-effect">-</button>
+                    <span id="modal-quantity" class="text-xl font-bold font-montserrat">1</span>
+                    <button id="increase-quantity-modal" class="bg-amber-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-xl hover:bg-amber-600 transition-colors duration-300 btn-hover-effect">+</button>
+                </div>
+                <span id="modal-price" class="text-2xl font-bold text-white mt-4 block font-montserrat"></span>
+                <button id="add-to-cart-button" class="mt-6 w-full py-3 rounded-full bg-amber-500 text-black font-bold text-lg hover:bg-amber-600 transition-colors duration-300 btn-hover-effect">Sepete Ekle</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sipariş Onay Modal -->
+    <div id="order-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl">
+            <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Siparişiniz Alındı!</h2>
+            <p class="text-zinc-400 mb-6 font-poppins">Sipariş detaylarınız aşağıda. En kısa sürede hazırlanıp size ulaştırılacak. Afiyet olsun!</p>
+            <p class="text-zinc-400 mb-6 font-poppins">Sipariş Numarası: <span id="order-id" class="font-bold text-white"></span></p>
+            <ul id="order-summary-list" class="text-left space-y-2 text-zinc-300 border-t border-b border-zinc-700 py-4 mb-4 font-poppins">
+                <!-- Sipariş ürünleri buraya eklenecek -->
+            </ul>
+            <div class="flex justify-between items-center text-xl font-bold mb-6">
+                <span class="font-montserrat">Toplam Tutar:</span>
+                <span id="order-total-price" class="text-amber-500 font-montserrat"></span>
+            </div>
+            <button id="close-order-modal" class="w-full py-3 rounded-full bg-amber-500 text-black font-bold text-lg hover:bg-amber-600 transition-colors duration-300 btn-hover-effect">Tamam</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Modülleri
+        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, serverTimestamp, setLogLevel, query, where } = window.firebase;
+
+        // Uygulama ve Firebase Sabitleri
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Firebase Servisleri
+        let app, db, auth;
+        let userId = 'anon';
+        const ordersCollectionRef = `artifacts/${appId}/public/data/orders`;
+        const staffPassword = '1234'; // Güvenlik için, gerçek bir uygulamada bu şifre sunucu tarafında doğrulanmalıdır.
+        
+        // Uygulama Durumu
+        const menuData = {
+            kahveler: [
+                { id: 'espresso', name: 'Espresso', price: 45, description: 'Yoğun aromalı, sert kahve.', emoji: '☕' },
+                { id: 'latte', name: 'Latte', price: 60, description: 'Süt ve köpükle yumuşatılmış, katmanlı.', emoji: '🥛', options: {
+                    Sıcaklık: [
+                        { name: 'Sıcak', price: 0, emoji: '🔥' },
+                        { name: 'Soğuk', price: 0, emoji: '🧊' }
+                    ],
+                    'Süt Tipi': [
+                        { name: 'Normal Süt', price: 0 },
+                        { name: 'Laktozsuz Süt', price: 15 },
+                        { name: 'Badem Sütü', price: 15 }
+                    ]
+                }},
+                { id: 'cappuccino', name: 'Cappuccino', price: 55, description: 'Zengin köpüklü, yumuşak içim.', emoji: '☕' },
+                { id: 'americano', name: 'Americano', price: 48, description: 'Amerikan usulü demlenmiş, sıcak su ile seyreltilmiş.', emoji: '☕' },
+                { id: 'mojito_coffee', name: 'Naneli Buzlu Kahve', price: 70, description: 'Yaz aylarına özel, naneli ve ferahlatıcı.', emoji: '🍃' },
+            ],
+            tatlilar: [
+                { id: 'sufle', name: 'Çikolatalı Sufle', price: 80, description: 'Sıcak, akışkan çikolata hazzı.', emoji: '🍮' },
+                { id: 'cheesecake', name: 'San Sebastian Cheesecake', price: 90, description: 'İçi akışkan, hafif ve lezzetli.', emoji: '🍰' },
+                { id: 'profiterol', name: 'Profiterol', price: 75, description: 'Krema dolgulu, çikolata soslu efsane tatlı.', emoji: '🍫' },
+                { id: 'tiramisu', name: 'Tiramisu', price: 85, description: 'Kahve ve mascarpone kreması ile İtalyan klasiği.', emoji: '☕' },
+            ],
+            sandvicler: [
+                { id: 'pesto', name: 'Mozzarella Pesto', price: 95, description: 'Fesleğenli pesto sos ve taze mozzarella.', emoji: '🥪' },
+                { id: 'club', name: 'Kulüp Sandviç', price: 120, description: 'Tavuk, hindi füme ve marul ile bol malzemeli.', emoji: '🥓' },
+                { id: 'vegan', name: 'Vegan Sandviç', price: 110, description: 'Taze sebzeler ve avokado ile sağlıklı tercih.', emoji: '🥗' },
+                { id: 'tonbalik', name: 'Ton Balıklı Sandviç', price: 105, description: 'Taze sebzelerle zenginleştirilmiş.', emoji: '🐟' },
+            ],
+            icecekler: [
+                { id: 'limonata', name: 'Ev Yapımı Limonata', price: 55, description: 'Naneli ve ferahlatıcı.', emoji: '🍹' },
+                { id: 'frozen', name: 'Frozen', price: 70, description: 'Çilek veya mango seçenekleriyle buzlu içecek.', emoji: '🥤' },
+                { id: 'ice_tea', name: 'Ice Tea', price: 40, description: 'Şeftali veya limon aromalı, serinletici.', emoji: '🧊' },
+                { id: 'milkshake', name: 'Milkshake', price: 80, description: 'Çikolata, çilek ve vanilya aromalı.', emoji: '🍦' },
+            ]
+        };
+        const cart = {};
+        let selectedItem = null;
+        let selectedItemQuantity = 1;
+        let selectedOptions = {};
+        let selectedTable = null; // Masa numarasını tutacak yeni değişken
+
+        // DOM Elementleri
+        const loaderOverlay = document.getElementById('loader-overlay');
+        const appSubtitle = document.getElementById('app-subtitle');
+        const customerViewBtn = document.getElementById('customer-view-btn');
+        const staffViewBtn = document.getElementById('staff-view-btn');
+        const customerView = document.getElementById('customer-view');
+        const staffView = document.getElementById('staff-view');
+        const cartItemsList = document.getElementById('cart-items');
+        const totalPriceEl = document.getElementById('total-price');
+        const menuContent = document.getElementById('menu-content');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const itemModal = document.getElementById('item-modal');
+        const closeModalButton = document.getElementById('close-modal');
+        const addToCartButton = document.getElementById('add-to-cart-button');
+        const orderButton = document.getElementById('order-button');
+        const orderModal = document.getElementById('order-modal');
+        const closeOrderModal = document.getElementById('close-order-modal');
+        const orderSummaryList = document.getElementById('order-summary-list');
+        const orderTotalPriceEl = document.getElementById('order-total-price');
+        const modalQuantityEl = document.getElementById('modal-quantity');
+        const increaseQuantityModalBtn = document.getElementById('increase-quantity-modal');
+        const decreaseQuantityModalBtn = document.getElementById('decrease-quantity-modal');
+        const liveOrdersList = document.getElementById('live-orders-list');
+        const pastOrdersList = document.getElementById('past-orders-list');
+        const tableModal = document.getElementById('table-modal');
+        const tableInput = document.getElementById('table-input');
+        const setTableBtn = document.getElementById('set-table-btn');
+        const currentTableDisplay = document.getElementById('current-table-display');
+        const tableNumberText = document.getElementById('table-number-text');
+        const modalOptionsEl = document.getElementById('modal-options');
+        const staffLoginModal = document.getElementById('staff-login-modal');
+        const staffPasswordInput = document.getElementById('staff-password-input');
+        const staffLoginBtn = document.getElementById('staff-login-btn');
+        const closeLoginModal = document.getElementById('close-login-modal');
+        const loginMessageEl = document.getElementById('login-message');
+        
+        // Fiyatları formatlayan yardımcı fonksiyon
+        function formatPrice(price) {
+            return `${price} TL`;
+        }
+
+        // Sepeti günceller ve toplam fiyatı hesaplar
+        function updateCart() {
+            cartItemsList.innerHTML = '';
+            let total = 0;
+            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+
+            if (itemsInCart.length === 0) {
+                cartItemsList.innerHTML = '<li class="text-center text-zinc-400 font-poppins">Sepetiniz şu anda boş.</li>';
+                orderButton.disabled = true;
+            } else {
+                // Sadece masa seçilmişse sipariş butonunu etkinleştir
+                orderButton.disabled = !selectedTable;
+                
+                itemsInCart.forEach(item => {
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'border-b', 'border-zinc-700', 'last:border-b-0');
+
+                    // Opsiyonları görüntüleme
+                    let optionsText = '';
+                    if (item.selectedOptions) {
+                        for (const key in item.selectedOptions) {
+                            const option = item.selectedOptions[key];
+                            optionsText += `<span class="text-xs text-zinc-500 block font-poppins">${key}: ${option.name} ${option.price > 0 ? '(+' + option.price + ' TL)' : ''}</span>`;
+                        }
+                    }
+
+                    li.innerHTML = `
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-white font-montserrat">${item.name}</h4>
+                            ${optionsText}
+                            <span class="text-sm text-zinc-400 font-poppins">Adet: ${item.quantity}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button data-id="${item.id}" class="decrease-cart-btn bg-zinc-700 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold text-sm hover:bg-zinc-600 transition-colors duration-300">-</button>
+                            <span class="text-base font-bold font-montserrat">${item.quantity}</span>
+                            <button data-id="${item.id}" class="increase-cart-btn bg-amber-500 text-black rounded-full w-6 h-6 flex items-center justify-center font-bold text-sm hover:bg-amber-600 transition-colors duration-300">+</button>
+                        </div>
+                        <span class="font-bold text-amber-500 ml-4 font-montserrat">${formatPrice(item.totalPrice)}</span>
+                    `;
+                    cartItemsList.appendChild(li);
+                    total += item.totalPrice;
+                });
+            }
+            totalPriceEl.textContent = formatPrice(total);
+        }
+
+        // Menüdeki öğeleri dinamik olarak oluşturur
+        function renderMenu(category) {
+            menuContent.innerHTML = '';
+            menuData[category].forEach(item => {
+                const itemCard = document.createElement('div');
+                itemCard.classList.add('item-card', 'p-6', 'rounded-2xl', 'bg-zinc-800', 'flex', 'flex-col', 'gap-4', 'items-center', 'text-center', 'cursor-pointer');
+                itemCard.innerHTML = `
+                    <span class="text-6xl">${item.emoji}</span>
+                    <h3 class="text-2xl font-bold text-white font-montserrat">${item.name}</h3>
+                    <p class="text-sm text-zinc-400 line-clamp-2 font-poppins">${item.description}</p>
+                    <span class="font-bold text-amber-500 text-xl mt-auto font-montserrat">${formatPrice(item.price)}</span>
+                `;
+                itemCard.addEventListener('click', () => showItemModal(item));
+                menuContent.appendChild(itemCard);
+            });
+        }
+
+        // Ürün detay modalını gösterir
+        function showItemModal(item) {
+            selectedItem = item;
+            selectedItemQuantity = 1;
+            selectedOptions = {};
+            
+            document.getElementById('modal-emoji').textContent = item.emoji;
+            document.getElementById('modal-title').textContent = item.name;
+            document.getElementById('modal-description').textContent = item.description;
+            modalQuantityEl.textContent = selectedItemQuantity;
+            
+            modalOptionsEl.innerHTML = '';
+            if (item.options) {
+                for (const optionCategory in item.options) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.classList.add('mb-4');
+                    categoryDiv.innerHTML = `<h4 class="font-semibold text-white mb-2 font-montserrat">${optionCategory}:</h4>`;
+                    
+                    const optionsContainer = document.createElement('div');
+                    optionsContainer.classList.add('flex', 'flex-wrap', 'gap-2');
+                    
+                    item.options[optionCategory].forEach((option, index) => {
+                        const optionId = `option-${optionCategory}-${index}`;
+                        const isDefault = index === 0;
+                        if (isDefault) {
+                            selectedOptions[optionCategory] = option;
+                        }
+
+                        const optionInput = document.createElement('input');
+                        optionInput.type = 'radio';
+                        optionInput.name = optionCategory;
+                        optionInput.id = optionId;
+                        optionInput.value = option.name;
+                        optionInput.checked = isDefault;
+                        optionInput.classList.add('hidden');
+                        
+                        const optionLabel = document.createElement('label');
+                        optionLabel.htmlFor = optionId;
+                        optionLabel.classList.add('px-4', 'py-2', 'rounded-full', 'font-semibold', 'transition-all', 'duration-200', 'cursor-pointer', 'bg-zinc-700', 'text-white', 'hover:bg-amber-500', 'hover:text-black', 'text-sm');
+                        optionLabel.textContent = `${option.emoji ? option.emoji + ' ' : ''}${option.name} ${option.price > 0 ? '(+' + option.price + ' TL)' : ''}`;
+
+                        optionInput.addEventListener('change', () => {
+                            selectedOptions[optionCategory] = option;
+                            updateModalPrice();
+                        });
+                        
+                        optionsContainer.appendChild(optionInput);
+                        optionsContainer.appendChild(optionLabel);
+                    });
+                    categoryDiv.appendChild(optionsContainer);
+                    modalOptionsEl.appendChild(categoryDiv);
+                }
+            }
+            updateModalPrice();
+            itemModal.classList.remove('hidden');
+        }
+
+        // Modal fiyatını günceller
+        function updateModalPrice() {
+            let optionsTotal = 0;
+            for (const key in selectedOptions) {
+                optionsTotal += selectedOptions[key].price;
+            }
+            const total = (selectedItem.price + optionsTotal) * selectedItemQuantity;
+            document.getElementById('modal-price').textContent = formatPrice(total);
+        }
+
+        // Ürün detay modalını gizler
+        function hideItemModal() {
+            itemModal.classList.add('hidden');
+            selectedItem = null;
+            selectedItemQuantity = 1;
+        }
+        
+        // Sepete ürün ekler
+        function addToCart() {
+            if (selectedItem) {
+                let optionsTotal = 0;
+                for (const key in selectedOptions) {
+                    optionsTotal += selectedOptions[key].price;
+                }
+                const totalPrice = (selectedItem.price + optionsTotal) * selectedItemQuantity;
+
+                if (cart[selectedItem.id]) {
+                    cart[selectedItem.id].quantity += selectedItemQuantity;
+                    cart[selectedItem.id].totalPrice += totalPrice;
+                } else {
+                    cart[selectedItem.id] = { ...selectedItem, quantity: selectedItemQuantity, totalPrice: totalPrice, selectedOptions: selectedOptions };
+                }
+                updateCart();
+                hideItemModal();
+            }
+        }
+        
+        // Sipariş onayı modalını gösterir
+        async function showOrderModal(orderId) {
+            orderSummaryList.innerHTML = '';
+            let total = 0;
+            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+
+            itemsInCart.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="font-semibold font-montserrat">${item.name}</span> - ${item.quantity} adet
+                    <span class="float-right font-bold font-montserrat">${formatPrice(item.totalPrice)}</span>
+                `;
+                orderSummaryList.appendChild(li);
+                total += item.totalPrice;
+            });
+            
+            document.getElementById('order-id').textContent = orderId;
+            orderTotalPriceEl.textContent = formatPrice(total);
+            orderModal.classList.remove('hidden');
+        }
+
+        // Siparişleri veritabanına kaydeder
+        async function placeOrder() {
+            loaderOverlay.classList.remove('hidden');
+            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+            const total = itemsInCart.reduce((sum, item) => sum + item.totalPrice, 0);
+            
+            const newOrder = {
+                userId: userId,
+                tableNumber: selectedTable, // Masa numarasını siparişe ekle
+                items: JSON.stringify(itemsInCart),
+                total: total,
+                status: 'Hazırlanıyor',
+                timestamp: serverTimestamp()
+            };
+
+            try {
+                const docRef = await addDoc(collection(db, ordersCollectionRef), newOrder);
+                showOrderModal(docRef.id);
+            } catch (e) {
+                console.error("Sipariş eklenirken hata oluştu: ", e);
+                // Özel hata mesajı göstermek için alert yerine modal kullanılabilir
+                alert("Sipariş verilemedi. Lütfen tekrar deneyin.");
+            } finally {
+                loaderOverlay.classList.add('hidden');
+            }
+        }
+
+        // Sipariş kartını oluşturan yardımcı fonksiyon
+        function createOrderCard(order) {
+            const orderCard = document.createElement('div');
+            orderCard.classList.add('p-6', 'rounded-2xl', 'bg-zinc-800', 'shadow-lg', 'border', 'border-zinc-700', 'space-y-4');
+            
+            // Sipariş durumuna göre renk belirleme
+            const statusColor = order.status === 'Hazırlanıyor' ? 'bg-orange-500' : 'bg-emerald-500';
+
+            // Opsiyonları listeleme
+            let itemsHtml = '';
+            JSON.parse(order.items).forEach(item => {
+                let optionsText = '';
+                if (item.selectedOptions) {
+                    for (const key in item.selectedOptions) {
+                        const option = item.selectedOptions[key];
+                        optionsText += `<li class="text-xs text-zinc-500 ml-4 font-poppins">${key}: ${option.name} ${option.price > 0 ? '(+' + option.price + ' TL)' : ''}</li>`;
+                    }
+                }
+                itemsHtml += `<li class="text-zinc-300 font-poppins">${item.name} (${item.quantity} adet) - ${formatPrice(item.totalPrice)}</li><ul class="font-poppins">${optionsText}</ul>`;
+            });
+
+            orderCard.innerHTML = `
+                <div class="flex justify-between items-center border-b border-zinc-700 pb-2">
+                    <h3 class="text-xl font-bold text-white font-montserrat">Sipariş ID: <span class="font-normal text-amber-500 text-sm font-poppins">${order.id}</span></h3>
+                    <span class="px-3 py-1 text-sm rounded-full font-bold ${statusColor} text-white font-poppins">${order.status}</span>
+                </div>
+                <p class="text-sm text-zinc-400 font-poppins">Masa No: <span class="text-white font-bold">${order.tableNumber}</span></p>
+                <p class="text-sm text-zinc-400 font-poppins">Kullanıcı: ${order.userId}</p>
+                <ul class="list-disc list-inside space-y-1">
+                    ${itemsHtml}
+                </ul>
+                <div class="pt-2 border-t border-zinc-700 flex justify-between items-center">
+                    <span class="text-lg font-bold font-montserrat">Toplam:</span>
+                    <span class="text-xl font-bold text-amber-500 font-montserrat">${formatPrice(order.total)}</span>
+                </div>
+                ${order.status === 'Hazırlanıyor' ? 
+                    `<button data-id="${order.id}" class="complete-order-btn w-full mt-4 py-2 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors duration-300 btn-hover-effect">Siparişi Tamamla</button>` : ''
+                }
+            `;
+            return orderCard;
+        }
+
+        // Hazırlanan siparişleri render eder
+        function renderLiveOrders(orders) {
+            liveOrdersList.innerHTML = '';
+            if (orders.length === 0) {
+                liveOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Hazırlanan sipariş yok.</p>';
+                return;
+            }
+            orders.forEach(order => {
+                liveOrdersList.appendChild(createOrderCard(order));
+            });
+        }
+        
+        // Tamamlanan siparişleri render eder
+        function renderPastOrders(orders) {
+            pastOrdersList.innerHTML = '';
+            if (orders.length === 0) {
+                pastOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Henüz tamamlanmış sipariş yok.</p>';
+                return;
+            }
+            orders.forEach(order => {
+                pastOrdersList.appendChild(createOrderCard(order));
+            });
+        }
+
+        // Görünüm değiştirme fonksiyonu
+        function setView(viewName) {
+            if (viewName === 'customer') {
+                customerView.classList.remove('hidden');
+                staffView.classList.add('hidden');
+                customerViewBtn.classList.add('bg-amber-500', 'text-black');
+                customerViewBtn.classList.remove('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
+                staffViewBtn.classList.remove('bg-amber-500', 'text-black');
+                staffViewBtn.classList.add('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
+                appSubtitle.textContent = "Siparişinizi oluşturmak için lezzetleri keşfedin.";
+                currentTableDisplay.classList.remove('hidden');
+            } else if (viewName === 'staff') {
+                customerView.classList.add('hidden');
+                staffView.classList.remove('hidden');
+                staffViewBtn.classList.add('bg-amber-500', 'text-black');
+                staffViewBtn.classList.remove('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
+                customerViewBtn.classList.remove('bg-amber-500', 'text-black');
+                customerViewBtn.classList.add('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
+                appSubtitle.textContent = "Canlı Sipariş Paneli";
+                currentTableDisplay.classList.add('hidden');
+            }
+        }
+
+        // Olay Dinleyicileri
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Firebase'i başlat
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('debug'); // Firestore konsol loglarını açar
+                
+                // Kimlik doğrulama işlemini yap
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Kimlik doğrulama durumu değiştiğinde kullanıcı ID'sini al
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                    } else {
+                        userId = crypto.randomUUID(); // Anonim giriş de olmazsa rastgele ID oluştur
+                    }
+                    console.log("Authenticated User ID:", userId);
+                    
+                    // Firestore'da canlı siparişleri dinle
+                    const liveOrdersQuery = query(collection(db, ordersCollectionRef), where("status", "==", "Hazırlanıyor"));
+                    onSnapshot(liveOrdersQuery, (snapshot) => {
+                        const orders = [];
+                        snapshot.forEach(doc => {
+                            orders.push({ id: doc.id, ...doc.data() });
+                        });
+                        renderLiveOrders(orders);
+                    });
+
+                    // Firestore'da geçmiş siparişleri dinle
+                    const pastOrdersQuery = query(collection(db, ordersCollectionRef), where("status", "==", "Tamamlandı"));
+                    onSnapshot(pastOrdersQuery, (snapshot) => {
+                        const orders = [];
+                        snapshot.forEach(doc => {
+                            orders.push({ id: doc.id, ...doc.data() });
+                        });
+                        renderPastOrders(orders);
+                    });
+                });
+                
+                // Masa numarasını girmesi için modalı göster
+                tableModal.classList.remove('hidden');
+
+            } catch (e) {
+                console.error("Firebase başlatılırken hata:", e);
+                loaderOverlay.innerHTML = `<p class="text-red-500 text-lg">Hata: Uygulama başlatılamadı.</p>`;
+            }
+        });
+
+        // Masa onayı butonu
+        setTableBtn.addEventListener('click', () => {
+            const tableNumber = tableInput.value;
+            if (tableNumber && tableNumber.length > 0) {
+                selectedTable = tableNumber;
+                tableNumberText.textContent = selectedTable;
+                currentTableDisplay.classList.remove('hidden');
+                tableModal.classList.add('hidden');
+                loaderOverlay.classList.add('hidden');
+                renderMenu('kahveler'); // Masa seçildikten sonra menüyü yükle
+                updateCart(); // Sepet durumunu güncelle (butonları etkinleştirir)
+            } else {
+                // Özel hata mesajı göstermek için modal kullanılabilir
+                alert("Lütfen bir masa numarası giriniz.");
+            }
+        });
+        
+        // Kategori butonları
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const tabId = button.getAttribute('data-tab');
+                renderMenu(tabId);
+            });
+        });
+
+        // Görünüm değiştirme butonları
+        customerViewBtn.addEventListener('click', () => setView('customer'));
+        staffViewBtn.addEventListener('click', () => {
+            staffLoginModal.classList.remove('hidden');
+        });
+        
+        // Çalışan giriş modalı olayları
+        closeLoginModal.addEventListener('click', () => {
+            staffLoginModal.classList.add('hidden');
+            staffPasswordInput.value = '';
+            loginMessageEl.classList.add('hidden');
+        });
+
+        staffLoginBtn.addEventListener('click', () => {
+            const password = staffPasswordInput.value;
+            if (password === staffPassword) {
+                setView('staff');
+                staffLoginModal.classList.add('hidden');
+                staffPasswordInput.value = '';
+                loginMessageEl.classList.add('hidden');
+            } else {
+                loginMessageEl.classList.remove('hidden');
+            }
+        });
+
+        // Modal olayları
+        closeModalButton.addEventListener('click', hideItemModal);
+        increaseQuantityModalBtn.addEventListener('click', () => {
+            selectedItemQuantity++;
+            modalQuantityEl.textContent = selectedItemQuantity;
+            updateModalPrice();
+        });
+        decreaseQuantityModalBtn.addEventListener('click', () => {
+            if (selectedItemQuantity > 1) {
+                selectedItemQuantity--;
+                modalQuantityEl.textContent = selectedItemQuantity;
+                updateModalPrice();
+            }
+        });
+        addToCartButton.addEventListener('click', addToCart);
+
+        // Sepet içi artırma/azaltma
+        cartItemsList.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn) {
+                const id = btn.getAttribute('data-id');
+                const cartItem = cart[id];
+                if (!cartItem) return;
+
+                if (btn.classList.contains('increase-cart-btn')) {
+                    cartItem.quantity++;
+                    cartItem.totalPrice += cartItem.price + (Object.values(cartItem.selectedOptions || {}).reduce((sum, opt) => sum + opt.price, 0));
+                } else if (btn.classList.contains('decrease-cart-btn')) {
+                    cartItem.quantity--;
+                    cartItem.totalPrice -= (cartItem.price + (Object.values(cartItem.selectedOptions || {}).reduce((sum, opt) => sum + opt.price, 0)));
+                    if (cartItem.quantity <= 0) {
+                        delete cart[id];
+                    }
+                }
+                updateCart();
+            }
+        });
+
+        // Sipariş butonları
+        orderButton.addEventListener('click', placeOrder);
+        closeOrderModal.addEventListener('click', () => {
+            orderModal.classList.add('hidden');
+            for (const key in cart) {
+                delete cart[key];
+            }
+            updateCart();
+        });
+
+        // Çalışan görünümü sipariş tamamlama
+        document.getElementById('staff-view').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.complete-order-btn');
+            if (btn) {
+                const orderId = btn.getAttribute('data-id');
+                try {
+                    await updateDoc(doc(db, ordersCollectionRef, orderId), {
+                        status: 'Tamamlandı'
+                    });
+                } catch (e) {
+                    console.error("Sipariş durumu güncellenemedi:", e);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
