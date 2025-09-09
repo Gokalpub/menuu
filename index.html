@@ -10,31 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, onSnapshot, updateDoc, collection, query, where, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase ve Firestore'u global scope'a taşıma
-        window.firebase = {
-            initializeApp,
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged,
-            getFirestore,
-            doc,
-            addDoc,
-            updateDoc,
-            onSnapshot,
-            collection,
-            query,
-            where,
-            serverTimestamp,
-            setLogLevel
-        };
-    </script>
+    
     <style>
         .font-poppins { font-family: 'Poppins', sans-serif; }
         .font-montserrat { font-family: 'Montserrat', sans-serif; }
@@ -226,20 +202,6 @@
     </div>
 
     <script type="module">
-        // Firebase Modülleri
-        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, serverTimestamp, setLogLevel, query, where } = window.firebase;
-
-        // Uygulama ve Firebase Sabitleri
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // Firebase Servisleri
-        let app, db, auth;
-        let userId = 'anon';
-        const ordersCollectionRef = `artifacts/${appId}/public/data/orders`;
-        const staffPassword = '1234'; // Güvenlik için, gerçek bir uygulamada bu şifre sunucu tarafında doğrulanmalıdır.
-        
         // Uygulama Durumu
         const menuData = {
             kahveler: [
@@ -283,6 +245,9 @@
         let selectedItemQuantity = 1;
         let selectedOptions = {};
         let selectedTable = null; // Masa numarasını tutacak yeni değişken
+        const staffPassword = '1234'; // Güvenlik için, gerçek bir uygulamada bu şifre sunucu tarafında doğrulanmalıdır.
+        let liveOrders = [];
+        let pastOrders = [];
 
         // DOM Elementleri
         const loaderOverlay = document.getElementById('loader-overlay');
@@ -483,7 +448,7 @@
         }
         
         // Sipariş onayı modalını gösterir
-        async function showOrderModal(orderId) {
+        function showOrderModal(orderId) {
             orderSummaryList.innerHTML = '';
             let total = 0;
             const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
@@ -503,31 +468,25 @@
             orderModal.classList.remove('hidden');
         }
 
-        // Siparişleri veritabanına kaydeder
-        async function placeOrder() {
-            loaderOverlay.classList.remove('hidden');
+        // Siparişleri yerel belleğe kaydeder
+        function placeOrder() {
             const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+            if (itemsInCart.length === 0) return;
+
             const total = itemsInCart.reduce((sum, item) => sum + item.totalPrice, 0);
             
             const newOrder = {
-                userId: userId,
-                tableNumber: selectedTable, // Masa numarasını siparişe ekle
+                id: crypto.randomUUID(),
+                tableNumber: selectedTable,
                 items: JSON.stringify(itemsInCart),
                 total: total,
                 status: 'Hazırlanıyor',
-                timestamp: serverTimestamp()
+                timestamp: new Date().toISOString()
             };
 
-            try {
-                const docRef = await addDoc(collection(db, ordersCollectionRef), newOrder);
-                showOrderModal(docRef.id);
-            } catch (e) {
-                console.error("Sipariş eklenirken hata oluştu: ", e);
-                // Özel hata mesajı göstermek için alert yerine modal kullanılabilir
-                alert("Sipariş verilemedi. Lütfen tekrar deneyin.");
-            } finally {
-                loaderOverlay.classList.add('hidden');
-            }
+            liveOrders.push(newOrder);
+            showOrderModal(newOrder.id);
+            renderLiveOrders();
         }
 
         // Sipariş kartını oluşturan yardımcı fonksiyon
@@ -553,11 +512,10 @@
 
             orderCard.innerHTML = `
                 <div class="flex justify-between items-center border-b border-zinc-700 pb-2">
-                    <h3 class="text-xl font-bold text-white font-montserrat">Sipariş ID: <span class="font-normal text-amber-500 text-sm font-poppins">${order.id}</span></h3>
+                    <h3 class="text-xl font-bold text-white font-montserrat">Sipariş ID: <span class="font-normal text-amber-500 text-sm font-poppins">${order.id.substring(0, 8)}</span></h3>
                     <span class="px-3 py-1 text-sm rounded-full font-bold ${statusColor} text-white font-poppins">${order.status}</span>
                 </div>
                 <p class="text-sm text-zinc-400 font-poppins">Masa No: <span class="text-white font-bold">${order.tableNumber}</span></p>
-                <p class="text-sm text-zinc-400 font-poppins">Kullanıcı: ${order.userId}</p>
                 <ul class="list-disc list-inside space-y-1">
                     ${itemsHtml}
                 </ul>
@@ -573,25 +531,25 @@
         }
 
         // Hazırlanan siparişleri render eder
-        function renderLiveOrders(orders) {
+        function renderLiveOrders() {
             liveOrdersList.innerHTML = '';
-            if (orders.length === 0) {
+            if (liveOrders.length === 0) {
                 liveOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Hazırlanan sipariş yok.</p>';
                 return;
             }
-            orders.forEach(order => {
+            liveOrders.forEach(order => {
                 liveOrdersList.appendChild(createOrderCard(order));
             });
         }
         
         // Tamamlanan siparişleri render eder
-        function renderPastOrders(orders) {
+        function renderPastOrders() {
             pastOrdersList.innerHTML = '';
-            if (orders.length === 0) {
+            if (pastOrders.length === 0) {
                 pastOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Henüz tamamlanmış sipariş yok.</p>';
                 return;
             }
-            orders.forEach(order => {
+            pastOrders.forEach(order => {
                 pastOrdersList.appendChild(createOrderCard(order));
             });
         }
@@ -616,62 +574,15 @@
                 customerViewBtn.classList.add('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
                 appSubtitle.textContent = "Canlı Sipariş Paneli";
                 currentTableDisplay.classList.add('hidden');
+                renderLiveOrders();
+                renderPastOrders();
             }
         }
 
         // Olay Dinleyicileri
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Firebase'i başlat
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                setLogLevel('debug'); // Firestore konsol loglarını açar
-                
-                // Kimlik doğrulama işlemini yap
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Kimlik doğrulama durumu değiştiğinde kullanıcı ID'sini al
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                    } else {
-                        userId = crypto.randomUUID(); // Anonim giriş de olmazsa rastgele ID oluştur
-                    }
-                    console.log("Authenticated User ID:", userId);
-                    
-                    // Firestore'da canlı siparişleri dinle
-                    const liveOrdersQuery = query(collection(db, ordersCollectionRef), where("status", "==", "Hazırlanıyor"));
-                    onSnapshot(liveOrdersQuery, (snapshot) => {
-                        const orders = [];
-                        snapshot.forEach(doc => {
-                            orders.push({ id: doc.id, ...doc.data() });
-                        });
-                        renderLiveOrders(orders);
-                    });
-
-                    // Firestore'da geçmiş siparişleri dinle
-                    const pastOrdersQuery = query(collection(db, ordersCollectionRef), where("status", "==", "Tamamlandı"));
-                    onSnapshot(pastOrdersQuery, (snapshot) => {
-                        const orders = [];
-                        snapshot.forEach(doc => {
-                            orders.push({ id: doc.id, ...doc.data() });
-                        });
-                        renderPastOrders(orders);
-                    });
-                });
-                
-                // Masa numarasını girmesi için modalı göster
-                tableModal.classList.remove('hidden');
-
-            } catch (e) {
-                console.error("Firebase başlatılırken hata:", e);
-                loaderOverlay.innerHTML = `<p class="text-red-500 text-lg">Hata: Uygulama başlatılamadı.</p>`;
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            loaderOverlay.classList.add('hidden');
+            tableModal.classList.remove('hidden');
         });
 
         // Masa onayı butonu
@@ -682,7 +593,6 @@
                 tableNumberText.textContent = selectedTable;
                 currentTableDisplay.classList.remove('hidden');
                 tableModal.classList.add('hidden');
-                loaderOverlay.classList.add('hidden');
                 renderMenu('kahveler'); // Masa seçildikten sonra menüyü yükle
                 updateCart(); // Sepet durumunu güncelle (butonları etkinleştirir)
             } else {
@@ -765,26 +675,30 @@
         });
 
         // Sipariş butonları
-        orderButton.addEventListener('click', placeOrder);
-        closeOrderModal.addEventListener('click', () => {
-            orderModal.classList.add('hidden');
+        orderButton.addEventListener('click', () => {
+            placeOrder();
+            // Sipariş verildikten sonra sepeti boşalt
             for (const key in cart) {
                 delete cart[key];
             }
             updateCart();
         });
+        closeOrderModal.addEventListener('click', () => {
+            orderModal.classList.add('hidden');
+        });
 
         // Çalışan görünümü sipariş tamamlama
-        document.getElementById('staff-view').addEventListener('click', async (e) => {
+        document.getElementById('staff-view').addEventListener('click', (e) => {
             const btn = e.target.closest('.complete-order-btn');
             if (btn) {
                 const orderId = btn.getAttribute('data-id');
-                try {
-                    await updateDoc(doc(db, ordersCollectionRef, orderId), {
-                        status: 'Tamamlandı'
-                    });
-                } catch (e) {
-                    console.error("Sipariş durumu güncellenemedi:", e);
+                const orderIndex = liveOrders.findIndex(o => o.id === orderId);
+                if (orderIndex > -1) {
+                    const [completedOrder] = liveOrders.splice(orderIndex, 1);
+                    completedOrder.status = 'Tamamlandı';
+                    pastOrders.push(completedOrder);
+                    renderLiveOrders();
+                    renderPastOrders();
                 }
             }
         });
