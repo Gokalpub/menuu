@@ -10,7 +10,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-
     <style>
         .font-poppins { font-family: 'Poppins', sans-serif; }
         .font-montserrat { font-family: 'Montserrat', sans-serif; }
@@ -64,6 +63,32 @@
             transform: scale(1.05);
             box-shadow: 0 6px 15px rgba(255, 193, 7, 0.3);
         }
+        /* Responsive ve temel tasarım kuralları */
+        .modal-content {
+            width: 90%;
+            max-width: 500px;
+        }
+        @media (min-width: 768px) {
+            .modal-content {
+                width: 70%;
+            }
+        }
+        .status-badge {
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+        .status-preparing {
+            background-color: #fde68a;
+            color: #92400e;
+        }
+        .status-ready {
+            background-color: #a7f3d0;
+            color: #065f46;
+        }
     </style>
 </head>
 <body class="bg-zinc-900 text-white min-h-screen p-4 flex flex-col items-center">
@@ -77,7 +102,7 @@
 
     <!-- Masa Seçim Modal -->
     <div id="table-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
-        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
             <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Masa Numaranızı Girin</h2>
             <p class="text-zinc-400 mb-6 font-poppins">Lütfen siparişinizin geleceği masa numarasını giriniz.</p>
             <input id="table-input" type="number" placeholder="Masa No" class="w-full bg-zinc-700 text-white p-3 rounded-lg text-center text-xl font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-300 font-montserrat">
@@ -87,7 +112,7 @@
 
     <!-- Çalışan Giriş Modal -->
     <div id="staff-login-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
-        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
             <button id="close-login-modal" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors duration-200 text-2xl font-bold">&times;</button>
             <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Çalışan Girişi</h2>
             <p class="text-zinc-400 mb-6 font-poppins">Lütfen yönetici şifresini giriniz.</p>
@@ -99,10 +124,21 @@
 
     <!-- Destek Çağrısı Onay Mesajı -->
     <div id="support-call-success-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
             <h2 class="text-3xl font-bold text-emerald-500 mb-4 font-montserrat">Personel Yolda!</h2>
             <p class="text-zinc-400 mb-6 font-poppins">Destek talebiniz alındı. En kısa sürede size ulaşacağız.</p>
             <button id="close-support-modal" class="w-full py-3 rounded-full bg-emerald-500 text-black font-bold text-lg hover:bg-emerald-600 transition-all duration-300 btn-hover-effect">Tamam</button>
+        </div>
+    </div>
+    
+    <!-- Sipariş Hazır Modal -->
+    <div id="ready-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-sm mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
+            <button id="close-ready-modal" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors duration-200 text-2xl font-bold">&times;</button>
+            <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Siparişiniz Hazır!</h2>
+            <p class="text-zinc-400 mb-6 font-poppins">Lütfen siparişinizi baristadan teslim alınız.</p>
+            <p id="ready-order-id" class="text-xl font-semibold text-white font-poppins mb-4"></p>
+            <button id="close-ready-modal-btn" class="w-full py-3 rounded-full bg-amber-500 text-black font-bold text-lg hover:bg-amber-600 transition-all duration-300 btn-hover-effect">Anladım</button>
         </div>
     </div>
 
@@ -112,18 +148,27 @@
             <h1 class="text-5xl font-extrabold text-amber-500 tracking-wide font-montserrat">Lezzet Durağı</h1>
             <p id="app-subtitle" class="text-zinc-400 text-lg font-medium font-poppins">Siparişinizi oluşturmak için lezzetleri keşfedin.</p>
             <p id="current-table-display" class="text-lg font-semibold text-amber-500 hidden font-poppins">Masa No: <span id="table-number-text"></span></p>
+            <p id="userIdDisplay" class="text-sm text-zinc-600 hidden">Kullanıcı ID: </p>
         </div>
 
         <!-- Görünüm Değiştirme Butonları -->
-        <div class="flex justify-center gap-4">
+        <div class="flex justify-center gap-4 flex-wrap">
             <button id="customer-view-btn" class="px-4 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-amber-500 text-black">Müşteri Görünümü</button>
             <button id="staff-view-btn" class="px-4 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 text-zinc-400 hover:bg-zinc-700">Çalışan Görünümü</button>
         </div>
 
         <!-- Müşteri Görünümü -->
         <div id="customer-view" class="">
+            <!-- Sipariş Durumu Kartı -->
+            <div id="order-status-card" class="bg-zinc-800 p-6 rounded-2xl shadow-lg border border-zinc-700 hidden">
+                <h2 class="text-xl font-bold text-amber-500 mb-4 text-center">Sipariş Durumu</h2>
+                <div id="current-order-display" class="text-center">
+                    <!-- Sipariş durumu buraya eklenecek -->
+                </div>
+            </div>
+
             <!-- Kategori Butonları -->
-            <div class="flex justify-center gap-4 md:gap-8 flex-wrap">
+            <div class="flex justify-center gap-4 md:gap-8 flex-wrap mt-8">
                 <button class="tab-button active px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="kahveler">☕ Kahveler</button>
                 <button class="tab-button px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="tatlilar">🍰 Tatlılar</button>
                 <button class="tab-button px-6 py-2 rounded-full font-semibold transition-all duration-300 btn-hover-effect bg-zinc-800 hover:bg-zinc-700 text-zinc-400" data-tab="sandvicler">🥪 Sandviçler</button>
@@ -134,7 +179,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
                 <!-- Menü İçeriği -->
                 <div class="lg:col-span-2 space-y-8">
-                    <div id="menu-content" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="menu-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <!-- Menü Öğeleri Buraya JS ile Eklenecek -->
                     </div>
                 </div>
@@ -161,12 +206,21 @@
             <div id="live-orders-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Hazırlanan siparişler buraya JS ile eklenecek -->
             </div>
+            
+            <div class="mt-12">
+                <h2 class="text-3xl font-bold text-center text-amber-500 mb-6 font-montserrat">Hazır Siparişler</h2>
+                <div id="ready-orders-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                     <!-- Hazır siparişler buraya JS ile eklenecek -->
+                </div>
+            </div>
+
             <div class="mt-12">
                 <h2 class="text-3xl font-bold text-center text-sky-500 mb-6 font-montserrat">Destek Çağrıları</h2>
                 <div id="support-calls-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <!-- Destek çağrıları buraya JS ile eklenecek -->
                 </div>
             </div>
+
             <div class="mt-12">
                 <h2 class="text-3xl font-bold text-center text-zinc-400 mb-6 font-montserrat">Geçmiş Siparişler</h2>
                 <div id="past-orders-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -178,7 +232,7 @@
 
     <!-- Ürün Detay Modal -->
     <div id="item-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
             <button id="close-modal" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors duration-200 text-2xl font-bold">&times;</button>
             <div id="modal-content">
                 <div id="modal-image-placeholder" class="bg-zinc-700 w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -202,7 +256,7 @@
 
     <!-- Sipariş Onay Modal -->
     <div id="order-modal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl">
+        <div class="bg-zinc-800 p-8 rounded-2xl w-full max-w-lg mx-4 text-center relative border border-zinc-700 shadow-xl modal-content">
             <h2 class="text-3xl font-bold text-amber-500 mb-4 font-montserrat">Siparişiniz Alındı!</h2>
             <p class="text-zinc-400 mb-6 font-poppins">Sipariş detaylarınız aşağıda. En kısa sürede hazırlanıp size ulaştırılacak. Afiyet olsun!</p>
             <p class="text-zinc-400 mb-6 font-poppins">Sipariş Numarası: <span id="order-id" class="font-bold text-white"></span></p>
@@ -217,21 +271,14 @@
         </div>
     </div>
 
-    <script type="module">
-        // Uygulama Durumu
+    <script>
+        // Uygulama Durumu ve Veri Yönetimi
         const menuData = {
             kahveler: [
                 { id: 'espresso', name: 'Espresso', price: 45, description: 'Yoğun aromalı, sert kahve.', emoji: '☕' },
                 { id: 'latte', name: 'Latte', price: 60, description: 'Süt ve köpükle yumuşatılmış, katmanlı.', emoji: '🥛', options: {
-                    Sıcaklık: [
-                        { name: 'Sıcak', price: 0, emoji: '🔥' },
-                        { name: 'Soğuk', price: 0, emoji: '🧊' }
-                    ],
-                    'Süt Tipi': [
-                        { name: 'Normal Süt', price: 0 },
-                        { name: 'Laktozsuz Süt', price: 15 },
-                        { name: 'Badem Sütü', price: 15 }
-                    ]
+                    Sıcaklık: [{ name: 'Sıcak', price: 0, emoji: '🔥' }, { name: 'Soğuk', price: 0, emoji: '🧊' }],
+                    'Süt Tipi': [{ name: 'Normal Süt', price: 0 }, { name: 'Laktozsuz Süt', price: 15 }, { name: 'Badem Sütü', price: 15 }]
                 }},
                 { id: 'cappuccino', name: 'Cappuccino', price: 55, description: 'Zengin köpüklü, yumuşak içim.', emoji: '☕' },
                 { id: 'americano', name: 'Americano', price: 48, description: 'Amerikan usulü demlenmiş, sıcak su ile seyreltilmiş.', emoji: '☕' },
@@ -250,85 +297,167 @@
                 { id: 'tonbalik', name: 'Ton Balıklı Sandviç', price: 105, description: 'Taze sebzelerle zenginleştirilmiş.', emoji: '🐟' },
             ],
             icecekler: [
-                { id: 'limonata', name: 'Ev Yapımı Limonata', price: 55, description: 'Naneli ve ferahlatıcı.', emoji: '🍹' },
-                { id: 'frozen', name: 'Frozen', price: 70, description: 'Çilek veya mango seçenekleriyle buzlu içecek.', emoji: '🥤' },
-                { id: 'ice_tea', name: 'Ice Tea', price: 40, description: 'Şeftali veya limon aromalı, serinletici.', emoji: '🧊' },
-                { id: 'milkshake', name: 'Milkshake', price: 80, description: 'Çikolata, çilek ve vanilya aromalı.', emoji: '🍦' },
+                { id: 'limonata', name: 'Ev Yapımı Limonata', price: 55, description: 'Naneli ve ferahlatıcı.', emoji: '🍹', options: {
+                    Tat: [{name: 'Klasik', price: 0}, {name: 'Naneli', price: 5}, {name: 'Çilekli', price: 5}]
+                }},
+                { id: 'frozen', name: 'Frozen', price: 70, description: 'Çilek veya mango seçenekleriyle buzlu içecek.', emoji: '🥤', options: {
+                    Tat: [{name: 'Çilek', price: 0}, {name: 'Limon', price: 0}, {name: 'Tropikal Meyve', price: 10}, {name: 'Ahududu', price: 10}]
+                }},
+                { id: 'ice_tea', name: 'Ice Tea', price: 40, description: 'Şeftali veya limon aromalı, serinletici.', emoji: '🧊', options: {
+                    Tat: [{name: 'Şeftali', price: 0}, {name: 'Limon', price: 0}, {name: 'Ahududu', price: 5}, {name: 'Yeşil Çay', price: 5}]
+                }},
+                { id: 'milkshake', name: 'Milkshake', price: 80, description: 'Çikolata, çilek ve vanilya aromalı.', emoji: '🍦', options: {
+                    Tat: [{name: 'Çikolata', price: 0}, {name: 'Çilek', price: 0}, {name: 'Vanilya', price: 0}, {name: 'Muz', price: 10}, {name: 'Karamel', price: 10}]
+                }},
             ]
         };
-        const cart = {};
+        
+        let cart = {};
         let selectedItem = null;
         let selectedItemQuantity = 1;
         let selectedOptions = {};
-        let selectedTable = null; // Masa numarasını tutacak yeni değişken
-        const staffPassword = '1234'; // Güvenlik için, gerçek bir uygulamada bu şifre sunucu tarafında doğrulanmalıdır.
-        let liveOrders = [];
-        let pastOrders = [];
-        let supportCalls = []; // Destek çağrılarını tutacak yeni dizi
+        let selectedTable = null;
+        let currentView = 'customer';
+        const staffPassword = '1234';
+        
+        // Sipariş ve destek çağrıları için basit bir yerel "veritabanı"
+        let localOrders = [];
+        let localSupportCalls = [];
+        let lastPlacedOrderId = null;
 
-        // DOM Elementleri
-        const loaderOverlay = document.getElementById('loader-overlay');
-        const appSubtitle = document.getElementById('app-subtitle');
-        const customerViewBtn = document.getElementById('customer-view-btn');
-        const staffViewBtn = document.getElementById('staff-view-btn');
-        const customerView = document.getElementById('customer-view');
-        const staffView = document.getElementById('staff-view');
-        const cartItemsList = document.getElementById('cart-items');
-        const totalPriceEl = document.getElementById('total-price');
-        const menuContent = document.getElementById('menu-content');
-        const tabButtons = document.querySelectorAll('.tab-button');
-        const itemModal = document.getElementById('item-modal');
-        const closeModalButton = document.getElementById('close-modal');
-        const addToCartButton = document.getElementById('add-to-cart-button');
-        const orderButton = document.getElementById('order-button');
-        const orderModal = document.getElementById('order-modal');
-        const closeOrderModal = document.getElementById('close-order-modal');
-        const orderSummaryList = document.getElementById('order-summary-list');
-        const orderTotalPriceEl = document.getElementById('order-total-price');
-        const modalQuantityEl = document.getElementById('modal-quantity');
-        const increaseQuantityModalBtn = document.getElementById('increase-quantity-modal');
-        const decreaseQuantityModalBtn = document.getElementById('decrease-quantity-modal');
-        const liveOrdersList = document.getElementById('live-orders-list');
-        const pastOrdersList = document.getElementById('past-orders-list');
-        const tableModal = document.getElementById('table-modal');
-        const tableInput = document.getElementById('table-input');
-        const setTableBtn = document.getElementById('set-table-btn');
-        const currentTableDisplay = document.getElementById('current-table-display');
-        const tableNumberText = document.getElementById('table-number-text');
-        const modalOptionsEl = document.getElementById('modal-options');
-        const staffLoginModal = document.getElementById('staff-login-modal');
-        const staffPasswordInput = document.getElementById('staff-password-input');
-        const staffLoginBtn = document.getElementById('staff-login-btn');
-        const closeLoginModal = document.getElementById('close-login-modal');
-        const loginMessageEl = document.getElementById('login-message');
-        const callSupportBtn = document.getElementById('call-support-button');
-        const supportCallsList = document.getElementById('support-calls-list');
-        const supportCallSuccessModal = document.getElementById('support-call-success-modal');
-        const closeSupportModalBtn = document.getElementById('close-support-modal');
+        // --- DOM Elementleri ve Fonksiyon Referansları ---
+        const dom = {
+            loaderOverlay: document.getElementById('loader-overlay'),
+            appSubtitle: document.getElementById('app-subtitle'),
+            customerViewBtn: document.getElementById('customer-view-btn'),
+            staffViewBtn: document.getElementById('staff-view-btn'),
+            customerView: document.getElementById('customer-view'),
+            staffView: document.getElementById('staff-view'),
+            cartItemsList: document.getElementById('cart-items'),
+            totalPriceEl: document.getElementById('total-price'),
+            menuContent: document.getElementById('menu-content'),
+            tabButtons: document.querySelectorAll('.tab-button'),
+            itemModal: document.getElementById('item-modal'),
+            closeModalButton: document.getElementById('close-modal'),
+            addToCartButton: document.getElementById('add-to-cart-button'),
+            orderButton: document.getElementById('order-button'),
+            orderModal: document.getElementById('order-modal'),
+            closeOrderModal: document.getElementById('close-order-modal'),
+            orderSummaryList: document.getElementById('order-summary-list'),
+            orderTotalPriceEl: document.getElementById('order-total-price'),
+            modalQuantityEl: document.getElementById('modal-quantity'),
+            increaseQuantityModalBtn: document.getElementById('increase-quantity-modal'),
+            decreaseQuantityModalBtn: document.getElementById('decrease-quantity-modal'),
+            liveOrdersList: document.getElementById('live-orders-list'),
+            readyOrdersList: document.getElementById('ready-orders-list'),
+            pastOrdersList: document.getElementById('past-orders-list'),
+            tableModal: document.getElementById('table-modal'),
+            tableInput: document.getElementById('table-input'),
+            setTableBtn: document.getElementById('set-table-btn'),
+            currentTableDisplay: document.getElementById('current-table-display'),
+            tableNumberText: document.getElementById('table-number-text'),
+            modalOptionsEl: document.getElementById('modal-options'),
+            staffLoginModal: document.getElementById('staff-login-modal'),
+            staffPasswordInput: document.getElementById('staff-password-input'),
+            staffLoginBtn: document.getElementById('staff-login-btn'),
+            closeLoginModal: document.getElementById('close-login-modal'),
+            loginMessageEl: document.getElementById('login-message'),
+            callSupportBtn: document.getElementById('call-support-button'),
+            supportCallsList: document.getElementById('support-calls-list'),
+            supportCallSuccessModal: document.getElementById('support-call-success-modal'),
+            closeSupportModalBtn: document.getElementById('close-support-modal'),
+            readyModal: document.getElementById('ready-modal'),
+            closeReadyModalBtn: document.getElementById('close-ready-modal-btn'),
+            orderStatusCard: document.getElementById('order-status-card'),
+            currentOrderDisplay: document.getElementById('current-order-display'),
+            userIdDisplay: document.getElementById('userIdDisplay'),
+        };
 
-        // Fiyatları formatlayan yardımcı fonksiyon
+        // --- Yerel Depolama İşlevleri ---
+        function saveToLocalStorage(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        function getFromLocalStorage(key, defaultValue) {
+            try {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : defaultValue;
+            } catch (e) {
+                console.error("Local Storage'dan veri okuma hatası:", e);
+                return defaultValue;
+            }
+        }
+        
+        function updateLocalData() {
+            localOrders = getFromLocalStorage('orders', []);
+            localSupportCalls = getFromLocalStorage('support_calls', []);
+            lastPlacedOrderId = getFromLocalStorage('last_order_id', null);
+            if (currentView === 'staff') {
+                renderAllStaffViews();
+            } else {
+                updateCustomerView();
+            }
+        }
+
+        // --- Yardımcı Fonksiyonlar ---
         function formatPrice(price) {
             return `${price} TL`;
         }
 
-        // Sepeti günceller ve toplam fiyatı hesaplar
+        function calculateItemTotalPrice(item, quantity, options) {
+            let optionsTotal = 0;
+            if (options) {
+                for (const key in options) {
+                    optionsTotal += options[key].price;
+                }
+            }
+            return (item.price + optionsTotal) * quantity;
+        }
+
+        function showModal(modalElement) {
+            modalElement.classList.remove('hidden');
+        }
+
+        function hideModal(modalElement) {
+            modalElement.classList.add('hidden');
+        }
+
+        function addToCart() {
+            if (!selectedItem) return;
+
+            const itemInCart = cart[selectedItem.id];
+            const totalPrice = calculateItemTotalPrice(selectedItem, selectedItemQuantity, selectedOptions);
+
+            if (itemInCart) {
+                itemInCart.quantity += selectedItemQuantity;
+                itemInCart.totalPrice += totalPrice;
+            } else {
+                cart[selectedItem.id] = {
+                    ...selectedItem,
+                    quantity: selectedItemQuantity,
+                    selectedOptions: selectedOptions,
+                    totalPrice: totalPrice,
+                };
+            }
+            hideModal(dom.itemModal);
+            updateCart();
+        }
+
+        // --- UI Güncelleme Fonksiyonları ---
         function updateCart() {
-            cartItemsList.innerHTML = '';
+            dom.cartItemsList.innerHTML = '';
             let total = 0;
             const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
 
             if (itemsInCart.length === 0) {
-                cartItemsList.innerHTML = '<li class="text-center text-zinc-400 font-poppins">Sepetiniz şu anda boş.</li>';
-                orderButton.disabled = true;
+                dom.cartItemsList.innerHTML = '<li class="text-center text-zinc-400 font-poppins">Sepetiniz şu anda boş.</li>';
+                dom.orderButton.disabled = true;
             } else {
-                // Sadece masa seçilmişse sipariş butonunu etkinleştir
-                orderButton.disabled = !selectedTable;
-
+                dom.orderButton.disabled = !selectedTable;
                 itemsInCart.forEach(item => {
                     const li = document.createElement('li');
                     li.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'border-b', 'border-zinc-700', 'last:border-b-0');
-
-                    // Opsiyonları görüntüleme
+                    
                     let optionsText = '';
                     if (item.selectedOptions) {
                         for (const key in item.selectedOptions) {
@@ -350,16 +479,15 @@
                         </div>
                         <span class="font-bold text-amber-500 ml-4 font-montserrat">${formatPrice(item.totalPrice)}</span>
                     `;
-                    cartItemsList.appendChild(li);
+                    dom.cartItemsList.appendChild(li);
                     total += item.totalPrice;
                 });
             }
-            totalPriceEl.textContent = formatPrice(total);
+            dom.totalPriceEl.textContent = formatPrice(total);
         }
 
-        // Menüdeki öğeleri dinamik olarak oluşturur
         function renderMenu(category) {
-            menuContent.innerHTML = '';
+            dom.menuContent.innerHTML = '';
             menuData[category].forEach(item => {
                 const itemCard = document.createElement('div');
                 itemCard.classList.add('item-card', 'p-6', 'rounded-2xl', 'bg-zinc-800', 'flex', 'flex-col', 'gap-4', 'items-center', 'text-center', 'cursor-pointer');
@@ -370,22 +498,21 @@
                     <span class="font-bold text-amber-500 text-xl mt-auto font-montserrat">${formatPrice(item.price)}</span>
                 `;
                 itemCard.addEventListener('click', () => showItemModal(item));
-                menuContent.appendChild(itemCard);
+                dom.menuContent.appendChild(itemCard);
             });
         }
-
-        // Ürün detay modalını gösterir
+        
         function showItemModal(item) {
             selectedItem = item;
             selectedItemQuantity = 1;
             selectedOptions = {};
-
+            
             document.getElementById('modal-emoji').textContent = item.emoji;
             document.getElementById('modal-title').textContent = item.name;
             document.getElementById('modal-description').textContent = item.description;
-            modalQuantityEl.textContent = selectedItemQuantity;
-
-            modalOptionsEl.innerHTML = '';
+            dom.modalQuantityEl.textContent = selectedItemQuantity;
+            
+            dom.modalOptionsEl.innerHTML = '';
             if (item.options) {
                 for (const optionCategory in item.options) {
                     const categoryDiv = document.createElement('div');
@@ -424,103 +551,49 @@
                         optionsContainer.appendChild(optionLabel);
                     });
                     categoryDiv.appendChild(optionsContainer);
-                    modalOptionsEl.appendChild(categoryDiv);
+                    dom.modalOptionsEl.appendChild(categoryDiv);
                 }
             }
             updateModalPrice();
-            itemModal.classList.remove('hidden');
+            showModal(dom.itemModal);
         }
 
-        // Modal fiyatını günceller
         function updateModalPrice() {
-            let optionsTotal = 0;
-            for (const key in selectedOptions) {
-                optionsTotal += selectedOptions[key].price;
-            }
-            const total = (selectedItem.price + optionsTotal) * selectedItemQuantity;
+            const total = calculateItemTotalPrice(selectedItem, selectedItemQuantity, selectedOptions);
             document.getElementById('modal-price').textContent = formatPrice(total);
         }
 
-        // Ürün detay modalını gizler
-        function hideItemModal() {
-            itemModal.classList.add('hidden');
-            selectedItem = null;
-            selectedItemQuantity = 1;
-        }
-
-        // Sepete ürün ekler
-        function addToCart() {
-            if (selectedItem) {
-                let optionsTotal = 0;
-                for (const key in selectedOptions) {
-                    optionsTotal += selectedOptions[key].price;
-                }
-                const totalPrice = (selectedItem.price + optionsTotal) * selectedItemQuantity;
-
-                if (cart[selectedItem.id]) {
-                    cart[selectedItem.id].quantity += selectedItemQuantity;
-                    cart[selectedItem.id].totalPrice += totalPrice;
-                } else {
-                    cart[selectedItem.id] = { ...selectedItem, quantity: selectedItemQuantity, totalPrice: totalPrice, selectedOptions: selectedOptions };
-                }
-                updateCart();
-                hideItemModal();
+        function renderOrders(container, orders) {
+            container.innerHTML = '';
+            if (orders.length === 0) {
+                container.innerHTML = `<p class="text-center text-zinc-400 col-span-2 font-poppins">Henüz sipariş yok.</p>`;
+                return;
             }
-        }
-
-        // Sipariş onayı modalını gösterir
-        function showOrderModal(orderId) {
-            orderSummaryList.innerHTML = '';
-            let total = 0;
-            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
-
-            itemsInCart.forEach(item => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <span class="font-semibold font-montserrat">${item.name}</span> - ${item.quantity} adet
-                    <span class="float-right font-bold font-montserrat">${formatPrice(item.totalPrice)}</span>
-                `;
-                orderSummaryList.appendChild(li);
-                total += item.totalPrice;
+            orders.forEach(order => {
+                const orderCard = createOrderCard(order);
+                container.appendChild(orderCard);
             });
-
-            document.getElementById('order-id').textContent = orderId;
-            orderTotalPriceEl.textContent = formatPrice(total);
-            orderModal.classList.remove('hidden');
         }
-
-        // Siparişleri yerel belleğe kaydeder
-        function placeOrder() {
-            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
-            if (itemsInCart.length === 0) return;
-
-            const total = itemsInCart.reduce((sum, item) => sum + item.totalPrice, 0);
-
-            const newOrder = {
-                id: crypto.randomUUID(),
-                tableNumber: selectedTable,
-                items: JSON.stringify(itemsInCart),
-                total: total,
-                status: 'Hazırlanıyor',
-                timestamp: new Date().toISOString()
-            };
-
-            liveOrders.push(newOrder);
-            showOrderModal(newOrder.id);
-            renderLiveOrders();
-        }
-
-        // Sipariş kartını oluşturan yardımcı fonksiyon
+        
         function createOrderCard(order) {
             const orderCard = document.createElement('div');
             orderCard.classList.add('p-6', 'rounded-2xl', 'bg-zinc-800', 'shadow-lg', 'border', 'border-zinc-700', 'space-y-4');
+            let statusColor = '';
+            let buttonHtml = '';
 
-            // Sipariş durumuna göre renk belirleme
-            const statusColor = order.status === 'Hazırlanıyor' ? 'bg-orange-500' : 'bg-emerald-500';
+            if (order.status === 'preparing') {
+                statusColor = 'bg-amber-500';
+                buttonHtml = `<button data-id="${order.id}" data-action="mark-as-ready" class="w-full mt-4 py-2 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors duration-300 btn-hover-effect">Hazırlandı</button>`;
+            } else if (order.status === 'ready') {
+                statusColor = 'bg-emerald-500';
+                buttonHtml = `<button data-id="${order.id}" data-action="complete-order" class="w-full mt-4 py-2 rounded-full bg-sky-500 text-white font-bold hover:bg-sky-600 transition-colors duration-300 btn-hover-effect">Teslim Edildi</button>`;
+            } else if (order.status === 'completed') {
+                statusColor = 'bg-zinc-500';
+            }
 
-            // Opsiyonları listeleme
+            const items = order.items;
             let itemsHtml = '';
-            JSON.parse(order.items).forEach(item => {
+            items.forEach(item => {
                 let optionsText = '';
                 if (item.selectedOptions) {
                     for (const key in item.selectedOptions) {
@@ -533,8 +606,8 @@
 
             orderCard.innerHTML = `
                 <div class="flex justify-between items-center border-b border-zinc-700 pb-2">
-                    <h3 class="text-xl font-bold text-white font-montserrat">Sipariş ID: <span class="font-normal text-amber-500 text-sm font-poppins">${order.id.substring(0, 8)}</span></h3>
-                    <span class="px-3 py-1 text-sm rounded-full font-bold ${statusColor} text-white font-poppins">${order.status}</span>
+                    <h3 class="text-xl font-bold text-white font-montserrat">Sipariş ID: <span class="font-normal text-amber-500 text-sm font-poppins">${order.orderId}</span></h3>
+                    <span class="px-3 py-1 text-sm rounded-full font-bold ${statusColor} text-white font-poppins">${order.status === 'preparing' ? 'Hazırlanıyor' : (order.status === 'ready' ? 'Hazırlandı' : 'Tamamlandı')}</span>
                 </div>
                 <p class="text-sm text-zinc-400 font-poppins">Masa No: <span class="text-white font-bold">${order.tableNumber}</span></p>
                 <ul class="list-disc list-inside space-y-1">
@@ -544,14 +617,11 @@
                     <span class="text-lg font-bold font-montserrat">Toplam:</span>
                     <span class="text-xl font-bold text-amber-500 font-montserrat">${formatPrice(order.total)}</span>
                 </div>
-                ${order.status === 'Hazırlanıyor' ?
-                    `<button data-id="${order.id}" class="complete-order-btn w-full mt-4 py-2 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors duration-300 btn-hover-effect">Siparişi Tamamla</button>` : ''
-                }
+                ${buttonHtml}
             `;
             return orderCard;
         }
 
-        // Destek çağrı kartını oluşturan yardımcı fonksiyon
         function createSupportCallCard(call) {
              const callCard = document.createElement('div');
              callCard.classList.add('p-6', 'rounded-2xl', 'bg-zinc-800', 'shadow-lg', 'border', 'border-sky-700', 'space-y-4');
@@ -563,229 +633,269 @@
                      <span class="text-sm text-zinc-400 font-poppins">${callTime}</span>
                  </div>
                  <p class="text-zinc-300 font-poppins">Personel desteği talep edildi.</p>
-                 <button data-id="${call.id}" class="resolve-support-btn w-full mt-4 py-2 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors duration-300 btn-hover-effect">Sorun Çözüldü</button>
+                 <button data-id="${call.id}" data-action="resolve-support" class="w-full mt-4 py-2 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors duration-300 btn-hover-effect">Sorun Çözüldü</button>
              `;
              return callCard;
         }
-
-        // Hazırlanan siparişleri render eder
-        function renderLiveOrders() {
-            liveOrdersList.innerHTML = '';
-            if (liveOrders.length === 0) {
-                liveOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Hazırlanan sipariş yok.</p>';
+        
+        function renderSupportCalls(calls) {
+            dom.supportCallsList.innerHTML = '';
+            if (calls.length === 0) {
+                dom.supportCallsList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Bekleyen destek çağrısı yok.</p>';
                 return;
             }
-            liveOrders.forEach(order => {
-                liveOrdersList.appendChild(createOrderCard(order));
+            calls.forEach(call => {
+                dom.supportCallsList.appendChild(createSupportCallCard(call));
             });
         }
 
-        // Tamamlanan siparişleri render eder
-        function renderPastOrders() {
-            pastOrdersList.innerHTML = '';
-            if (pastOrders.length === 0) {
-                pastOrdersList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Henüz tamamlanmış sipariş yok.</p>';
-                return;
-            }
-            pastOrders.forEach(order => {
-                pastOrdersList.appendChild(createOrderCard(order));
-            });
+        function renderAllStaffViews() {
+            const liveOrders = localOrders.filter(order => order.status === 'preparing');
+            const readyOrders = localOrders.filter(order => order.status === 'ready');
+            const pastOrders = localOrders.filter(order => order.status === 'completed');
+
+            renderOrders(dom.liveOrdersList, liveOrders);
+            renderOrders(dom.readyOrdersList, readyOrders);
+            renderOrders(dom.pastOrdersList, pastOrders);
+            renderSupportCalls(localSupportCalls);
         }
 
-        // Destek çağrılarını render eder
-        function renderSupportCalls() {
-            supportCallsList.innerHTML = '';
-            if (supportCalls.length === 0) {
-                supportCallsList.innerHTML = '<p class="text-center text-zinc-400 col-span-2 font-poppins">Bekleyen destek çağrısı yok.</p>';
-                return;
-            }
-            supportCalls.forEach(call => {
-                supportCallsList.appendChild(createSupportCallCard(call));
-            });
-        }
-
-        // Görünüm değiştirme fonksiyonu
         function setView(viewName) {
-            if (viewName === 'customer') {
-                customerView.classList.remove('hidden');
-                staffView.classList.add('hidden');
-                customerViewBtn.classList.add('bg-amber-500', 'text-black');
-                customerViewBtn.classList.remove('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
-                staffViewBtn.classList.remove('bg-amber-500', 'text-black');
-                staffViewBtn.classList.add('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
-                appSubtitle.textContent = "Siparişinizi oluşturmak için lezzetleri keşfedin.";
-                currentTableDisplay.classList.remove('hidden');
-                callSupportBtn.disabled = !selectedTable;
-            } else if (viewName === 'staff') {
-                customerView.classList.add('hidden');
-                staffView.classList.remove('hidden');
-                staffViewBtn.classList.add('bg-amber-500', 'text-black');
-                staffViewBtn.classList.remove('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
-                customerViewBtn.classList.remove('bg-amber-500', 'text-black');
-                customerViewBtn.classList.add('bg-zinc-800', 'text-zinc-400', 'hover:bg-zinc-700');
-                appSubtitle.textContent = "Canlı Sipariş Paneli";
-                currentTableDisplay.classList.add('hidden');
-                renderLiveOrders();
-                renderSupportCalls();
-                renderPastOrders();
+            currentView = viewName;
+            const isCustomer = viewName === 'customer';
+            dom.customerView.classList.toggle('hidden', !isCustomer);
+            dom.staffView.classList.toggle('hidden', isCustomer);
+            dom.customerViewBtn.classList.toggle('bg-amber-500', isCustomer);
+            dom.customerViewBtn.classList.toggle('text-black', isCustomer);
+            dom.customerViewBtn.classList.toggle('bg-zinc-800', !isCustomer);
+            dom.customerViewBtn.classList.toggle('text-zinc-400', !isCustomer);
+            dom.customerViewBtn.classList.toggle('hover:bg-zinc-700', !isCustomer);
+            dom.staffViewBtn.classList.toggle('bg-amber-500', !isCustomer);
+            dom.staffViewBtn.classList.toggle('text-black', !isCustomer);
+            dom.staffViewBtn.classList.toggle('bg-zinc-800', isCustomer);
+            dom.staffViewBtn.classList.toggle('text-zinc-400', isCustomer);
+            dom.staffViewBtn.classList.toggle('hover:bg-zinc-700', isCustomer);
+            
+            dom.appSubtitle.textContent = isCustomer ? "Siparişinizi oluşturmak için lezzetleri keşfedin." : "Canlı Sipariş Paneli";
+            dom.currentTableDisplay.classList.toggle('hidden', !isCustomer);
+            dom.callSupportBtn.disabled = !selectedTable;
+
+            updateLocalData();
+        }
+        
+        function updateCustomerView() {
+            if (lastPlacedOrderId) {
+                const order = localOrders.find(o => o.id === lastPlacedOrderId);
+                if (order) {
+                    displayCustomerOrderStatus(order);
+                    if (order.status === 'ready') {
+                        showModal(dom.readyModal);
+                        document.getElementById('ready-order-id').textContent = order.orderId;
+                    }
+                } else {
+                    // Sipariş tamamlandı ve yerelden silindi
+                    dom.orderStatusCard.classList.add('hidden');
+                    lastPlacedOrderId = null;
+                    saveToLocalStorage('last_order_id', null);
+                    dom.orderButton.disabled = false;
+                }
+            } else {
+                dom.orderStatusCard.classList.add('hidden');
             }
         }
+        
+        function displayCustomerOrderStatus(order) {
+            dom.orderStatusCard.classList.remove('hidden');
+            const statusText = order.status === 'preparing' ? 'Hazırlanıyor' : 'Hazırlandı';
+            const statusClass = order.status === 'preparing' ? 'status-preparing' : 'status-ready';
 
-        // Olay Dinleyicileri
+            dom.currentOrderDisplay.innerHTML = `
+                <p class="text-zinc-400 mb-2">Sipariş No: <span class="text-amber-500 font-bold">${order.orderId}</span></p>
+                <div class="flex items-center justify-center space-x-2">
+                    <span class="status-badge ${statusClass}">
+                        ${statusText}
+                    </span>
+                    ${order.status === 'ready' ? '<span class="text-sm font-semibold text-emerald-500 ml-2">Lütfen siparişinizi teslim alın.</span>' : ''}
+                </div>
+            `;
+            if (order.status === 'completed') {
+                dom.orderStatusCard.classList.add('hidden');
+            }
+        }
+        
+        function placeOrder() {
+            if (!selectedTable) {
+                console.error("Masa numarası yok.");
+                return;
+            }
+            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+            if (itemsInCart.length === 0) return;
+
+            const total = itemsInCart.reduce((sum, item) => sum + item.totalPrice, 0);
+            
+            const newOrder = {
+                id: Date.now().toString(),
+                tableNumber: selectedTable,
+                status: 'preparing',
+                items: itemsInCart,
+                total: total,
+                orderId: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                timestamp: new Date().toISOString()
+            };
+            
+            localOrders.push(newOrder);
+            saveToLocalStorage('orders', localOrders);
+            lastPlacedOrderId = newOrder.id;
+            saveToLocalStorage('last_order_id', lastPlacedOrderId);
+
+            showOrderModal(newOrder.orderId);
+            cart = {};
+            updateCart();
+            dom.orderButton.disabled = true;
+            updateCustomerView();
+        }
+
+        function showOrderModal(orderId) {
+            dom.orderSummaryList.innerHTML = '';
+            let total = 0;
+            const itemsInCart = Object.values(cart).filter(item => item.quantity > 0);
+
+            itemsInCart.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="font-semibold font-montserrat">${item.name}</span> - ${item.quantity} adet <span class="float-right font-bold font-montserrat">${formatPrice(item.totalPrice)}</span>`;
+                dom.orderSummaryList.appendChild(li);
+                total += item.totalPrice;
+            });
+
+            document.getElementById('order-id').textContent = orderId;
+            dom.orderTotalPriceEl.textContent = formatPrice(total);
+            showModal(dom.orderModal);
+        }
+        
+        // --- Olay Dinleyicileri ---
         document.addEventListener('DOMContentLoaded', () => {
-            loaderOverlay.classList.add('hidden');
-            tableModal.classList.remove('hidden');
-            callSupportBtn.disabled = true;
+            hideModal(dom.loaderOverlay);
+            showModal(dom.tableModal);
         });
 
-        // Masa onayı butonu
-        setTableBtn.addEventListener('click', () => {
-            const tableNumber = tableInput.value;
-            if (tableNumber && tableNumber.length > 0) {
+        dom.setTableBtn.addEventListener('click', () => {
+            const tableNumber = dom.tableInput.value.trim();
+            if (tableNumber) {
                 selectedTable = tableNumber;
-                tableNumberText.textContent = selectedTable;
-                currentTableDisplay.classList.remove('hidden');
-                tableModal.classList.add('hidden');
-                renderMenu('kahveler'); // Masa seçildikten sonra menüyü yükle
-                updateCart(); // Sepet durumunu güncelle (butonları etkinleştirir)
-                callSupportBtn.disabled = false; // Destek çağrı butonunu etkinleştir
-            } else {
-                // Özel hata mesajı göstermek için modal kullanılabilir
-                alert("Lütfen bir masa numarası giriniz.");
+                dom.tableNumberText.textContent = selectedTable;
+                dom.currentTableDisplay.classList.remove('hidden');
+                hideModal(dom.tableModal);
+                renderMenu('kahveler');
+                updateCart();
+                dom.callSupportBtn.disabled = false;
             }
         });
 
-        // Kategori butonları
-        tabButtons.forEach(button => {
+        dom.tabButtons.forEach(button => {
             button.addEventListener('click', () => {
-                tabButtons.forEach(btn => btn.classList.remove('active'));
+                dom.tabButtons.forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
-                const tabId = button.getAttribute('data-tab');
-                renderMenu(tabId);
+                renderMenu(button.getAttribute('data-tab'));
             });
         });
+        
+        dom.customerViewBtn.addEventListener('click', () => setView('customer'));
+        dom.staffViewBtn.addEventListener('click', () => showModal(dom.staffLoginModal));
+        dom.closeLoginModal.addEventListener('click', () => hideModal(dom.staffLoginModal));
 
-        // Görünüm değiştirme butonları
-        customerViewBtn.addEventListener('click', () => setView('customer'));
-        staffViewBtn.addEventListener('click', () => {
-            staffLoginModal.classList.remove('hidden');
-        });
-
-        // Çalışan giriş modalı olayları
-        closeLoginModal.addEventListener('click', () => {
-            staffLoginModal.classList.add('hidden');
-            staffPasswordInput.value = '';
-            loginMessageEl.classList.add('hidden');
-        });
-
-        staffLoginBtn.addEventListener('click', () => {
-            const password = staffPasswordInput.value;
-            if (password === staffPassword) {
+        dom.staffLoginBtn.addEventListener('click', () => {
+            if (dom.staffPasswordInput.value === staffPassword) {
                 setView('staff');
-                staffLoginModal.classList.add('hidden');
-                staffPasswordInput.value = '';
-                loginMessageEl.classList.add('hidden');
+                hideModal(dom.staffLoginModal);
             } else {
-                loginMessageEl.classList.remove('hidden');
+                dom.loginMessageEl.classList.remove('hidden');
             }
         });
 
-        // Modal olayları
-        closeModalButton.addEventListener('click', hideItemModal);
-        increaseQuantityModalBtn.addEventListener('click', () => {
+        dom.closeModalButton.addEventListener('click', () => {
+            hideModal(dom.itemModal);
+            selectedItem = null;
+        });
+
+        dom.increaseQuantityModalBtn.addEventListener('click', () => {
             selectedItemQuantity++;
-            modalQuantityEl.textContent = selectedItemQuantity;
+            dom.modalQuantityEl.textContent = selectedItemQuantity;
             updateModalPrice();
         });
-        decreaseQuantityModalBtn.addEventListener('click', () => {
+
+        dom.decreaseQuantityModalBtn.addEventListener('click', () => {
             if (selectedItemQuantity > 1) {
                 selectedItemQuantity--;
-                modalQuantityEl.textContent = selectedItemQuantity;
+                dom.modalQuantityEl.textContent = selectedItemQuantity;
                 updateModalPrice();
             }
         });
-        addToCartButton.addEventListener('click', addToCart);
 
-        // Sepet içi artırma/azaltma
-        cartItemsList.addEventListener('click', (e) => {
+        dom.addToCartButton.addEventListener('click', addToCart);
+
+        dom.cartItemsList.addEventListener('click', (e) => {
             const btn = e.target.closest('button');
-            if (btn) {
-                const id = btn.getAttribute('data-id');
-                const cartItem = cart[id];
-                if (!cartItem) return;
+            if (!btn) return;
+            
+            const id = btn.getAttribute('data-id');
+            const cartItem = cart[id];
+            if (!cartItem) return;
 
-                if (btn.classList.contains('increase-cart-btn')) {
-                    cartItem.quantity++;
-                    cartItem.totalPrice += cartItem.price + (Object.values(cartItem.selectedOptions || {}).reduce((sum, opt) => sum + opt.price, 0));
-                } else if (btn.classList.contains('decrease-cart-btn')) {
-                    cartItem.quantity--;
-                    cartItem.totalPrice -= (cartItem.price + (Object.values(cartItem.selectedOptions || {}).reduce((sum, opt) => sum + opt.price, 0)));
-                    if (cartItem.quantity <= 0) {
-                        delete cart[id];
-                    }
-                }
-                updateCart();
+            if (btn.classList.contains('increase-cart-btn')) {
+                cartItem.quantity++;
+            } else if (btn.classList.contains('decrease-cart-btn')) {
+                cartItem.quantity--;
             }
-        });
 
-        // Sipariş butonları
-        orderButton.addEventListener('click', () => {
-            placeOrder();
-            // Sipariş verildikten sonra sepeti boşalt
-            for (const key in cart) {
-                delete cart[key];
+            const optionsTotal = Object.values(cartItem.selectedOptions || {}).reduce((sum, opt) => sum + opt.price, 0);
+            cartItem.totalPrice = (cartItem.price + optionsTotal) * cartItem.quantity;
+            
+            if (cartItem.quantity <= 0) {
+                delete cart[id];
             }
             updateCart();
         });
-        closeOrderModal.addEventListener('click', () => {
-            orderModal.classList.add('hidden');
-        });
 
-        // Çalışan görünümü sipariş tamamlama
-        document.getElementById('staff-view').addEventListener('click', (e) => {
-            const btn = e.target.closest('.complete-order-btn');
-            if (btn) {
-                const orderId = btn.getAttribute('data-id');
-                const orderIndex = liveOrders.findIndex(o => o.id === orderId);
-                if (orderIndex > -1) {
-                    const [completedOrder] = liveOrders.splice(orderIndex, 1);
-                    completedOrder.status = 'Tamamlandı';
-                    pastOrders.push(completedOrder);
-                    renderLiveOrders();
-                    renderPastOrders();
-                }
-            }
+        dom.orderButton.addEventListener('click', placeOrder);
+        dom.closeOrderModal.addEventListener('click', () => hideModal(dom.orderModal));
+        dom.closeReadyModalBtn.addEventListener('click', () => hideModal(dom.readyModal));
 
-            const resolveBtn = e.target.closest('.resolve-support-btn');
-            if (resolveBtn) {
-                 const callId = resolveBtn.getAttribute('data-id');
-                 const callIndex = supportCalls.findIndex(c => c.id === callId);
-                 if (callIndex > -1) {
-                     supportCalls.splice(callIndex, 1);
-                     renderSupportCalls();
-                 }
-            }
-        });
-
-        // Destek çağrı butonu
-        callSupportBtn.addEventListener('click', () => {
+        dom.callSupportBtn.addEventListener('click', () => {
             if (selectedTable) {
                 const newCall = {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString(),
                     tableNumber: selectedTable,
                     timestamp: new Date().toISOString()
                 };
-                supportCalls.push(newCall);
-                renderSupportCalls();
-                supportCallSuccessModal.classList.remove('hidden');
-            } else {
-                alert("Lütfen önce masa numaranızı girin.");
+                localSupportCalls.push(newCall);
+                saveToLocalStorage('support_calls', localSupportCalls);
+                showModal(dom.supportCallSuccessModal);
+                updateLocalData();
             }
         });
 
-        // Destek çağrısı onay modalı kapatma
-        closeSupportModalBtn.addEventListener('click', () => {
-            supportCallSuccessModal.classList.add('hidden');
+        dom.closeSupportModalBtn.addEventListener('click', () => hideModal(dom.supportCallSuccessModal));
+
+        dom.staffView.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+
+            const itemId = btn.getAttribute('data-id');
+            const action = btn.getAttribute('data-action');
+            
+            if (action === 'mark-as-ready') {
+                const order = localOrders.find(o => o.id === itemId);
+                if (order) order.status = 'ready';
+            } else if (action === 'complete-order') {
+                const order = localOrders.find(o => o.id === itemId);
+                if (order) order.status = 'completed';
+            } else if (action === 'resolve-support') {
+                localSupportCalls = localSupportCalls.filter(call => call.id !== itemId);
+            }
+            
+            saveToLocalStorage('orders', localOrders);
+            saveToLocalStorage('support_calls', localSupportCalls);
+            updateLocalData();
         });
     </script>
 </body>
